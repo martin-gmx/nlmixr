@@ -454,7 +454,7 @@ fixef.focei.fit <- function(object, ...){
                 lab <- gsub(" *$", "", gsub("^ *", "", lab));
                 if (!is.null(nlme)){
                     ttab <- data.frame(summary(nlme)$tTable);
-                    row.names(ttab) <- fix.nlme.names(row.names(ttab), uif);
+                    row.names(ttab) <- .fixNlmeNames(row.names(ttab), uif);
                     names(ttab) <- c("Estimate", "SE", "DF", "t-value", "p-value")
                     ttab <- ttab[, 1:2]
                     tmp <- object$par.data.frame;
@@ -672,18 +672,6 @@ as.data.frame.focei.fit <- function(x, row.names = NULL, optional = FALSE, ...){
 
 ## FIXME: simulate function
 
-##' Simulate response based on FOCEi model's datathe fitted object's dataset
-##'
-##' @param object Focei object
-##' @param nsim Number of simulated parameters
-##' @param seed Seed to start with (if specified)
-##' @param ... Other parameters
-##' @return New dataset based on original dataset
-##' @export
-##' @author Matthew L. Fidler
-simulate.focei.fit <- function(object, nsim=1, seed=NULL, ...){
-    stop("FIXME")
-}
 ## FIXME: show?
 ## FIXME: qqnorm?
 ## FIXME: family?
@@ -824,6 +812,12 @@ plot.focei.fit <- function(x, ...) {
         geom_abline(slope=0, intercept=0, col="red")
     print(p2)
 
+    p2 <- ggplot(dat, aes(x=TIME, y=IRES)) +
+        geom_point() +
+        geom_abline(slope=0, intercept=0, col="red")
+    print(p2)
+
+
     ids <- unique(dat$ID)
     for (i  in seq(1, length(ids), by=16)){
         tmp <- ids[seq(i, i + 15)]
@@ -926,7 +920,7 @@ focei.fit.function <- focei.fit.nlmixrUI
 ##' @rdname focei.fit
 focei.fit.data.frame <- function(...){
     call <- as.list(match.call(expand.dots=TRUE))[-1];
-    return(collectWarnings(do.call(focei.fit.data.frame0, call, envir=parent.frame(1))))
+    return(.collectWarnings(do.call(focei.fit.data.frame0, call, envir=parent.frame(1))))
 }
 
 focei.fit.data.frame0 <- function(data,
@@ -1001,7 +995,6 @@ focei.fit.data.frame0 <- function(data,
         hmin = 0L,
         hmax = NULL,
         hini = 0L,
-        transit_abs = NULL,
         maxordn = 12L,
         maxords = 5L,
         stiff=1L,
@@ -1011,7 +1004,7 @@ focei.fit.data.frame0 <- function(data,
         reltol.outer = 1e-4,
         absltol.outer = 1e-4,
         cores=1,
-        transit_abs=FALSE,
+        transitAbs=FALSE,
         NONMEM=TRUE,
         NOTRUN=FALSE,
         PRINT.PARS=FALSE,
@@ -1059,7 +1052,10 @@ focei.fit.data.frame0 <- function(data,
         control <- control[sapply(names(control), function(x){!is.null(control[[x]])})]
     }
     con[(namc <- names(control))] <- control
-    if (length(noNms <- namc[!namc %in% nmsC]))
+    if (!is.null(control$transit_abs)){
+        con$transitAbs <- control$transit_abs;
+    }
+    if (length(noNms <- namc[!namc %in% c(nmsC, "transit_abs")]))
         warning("unknown names in control: ", paste(noNms, collapse = ", "))
 
     running <- TRUE
@@ -1083,7 +1079,7 @@ focei.fit.data.frame0 <- function(data,
                                          "bobyqa",
                                          "L-BFGS-B",
                                          "BFGS",
-                                         "lbfgs",
+                                         ## "lbfgs",
                                          "lbfgsb3",
                                          ## "newuoa",
                                          "nlminb"##,
@@ -1330,7 +1326,7 @@ focei.fit.data.frame0 <- function(data,
                                                        id=subj, inits.vec=inits.vec, cov=cur.cov, estimate=find.best.eta,
                                                        atol=con$atol.ode, rtol=con$rtol.ode, maxsteps=con$maxsteps.ode,
                                                        atol.outer=con$atol.outer, rtol.outer=con$rtol.outer,
-                                                       hmin = con$hmin, hmax = con$hmax, hini = con$hini, transit_abs = con$transit_abs,
+                                                       hmin = con$hmin, hmax = con$hmax, hini = con$hini, transitAbs = con$transitAbs,
                                                        maxordn = con$maxordn, maxords = con$maxords, stiff=con$stiff,
                                                        pred.minus.dv=con$pred.minus.dv, switch.solver=con$switch.solver,
                                                        inner.opt=con$inner.opt, add.grad=print.grad, numDeriv.method=numDeriv.method,
@@ -1409,9 +1405,10 @@ focei.fit.data.frame0 <- function(data,
     optim.obj <- function(lines, prefix="o"){
         if (class(lines) == "numeric"){
             ofv <- lines;
-            if (any(optim.method == c("lbfgs"))){
-                return(paste0(prefix, ".", RxODE::rxCout(ofv)));
-            } else if (any(optim.method == c("L-BFGS-B", "BFGS"))){
+            ## if (any(optim.method == c("lbfgs"))){
+            ##     return(paste0(prefix, ".", RxODE::rxCout(ofv)));
+            ## } else
+            if (any(optim.method == c("L-BFGS-B", "BFGS"))){
                 return(sprintf("%s.%.6f", prefix, ofv))
             } else if (any(optim.method == c("nlminb", "newuoa", "bobyqa", "uobyqa", "n1qn1"))){
                 return(paste0(prefix, ".", gsub("^ *", "", sprintf("%#14.8g",ofv))));
@@ -2225,6 +2222,8 @@ focei.fit.data.frame0 <- function(data,
             return(env$uif$model.name);
         } else if (arg == "data.name"){
             return(env$uif$data.name);
+        } else if (arg == "simInfo"){
+            return(.simInfo(obj));
         } else {
             fit <- env$fit;
             ret <- fit[[arg, exact = exact]]
@@ -2251,9 +2250,9 @@ focei.fit.data.frame0 <- function(data,
 str.focei.fit <- function(object, ...){
     uif <- object$uif;
     if (is.null(uif)){
-        message('FOCEi combined dataset and properties');
+        cat('FOCEi combined dataset and properties\n');
     } else {
-        message('nlmixr UI combined dataset and properties')
+        cat('nlmixr UI combined dataset and properties\n')
     }
     m <- as.data.frame(object);
     str(m)
@@ -2262,13 +2261,14 @@ str.focei.fit <- function(object, ...){
     str(fit)
     str(as.list(env$fit))
     str(as.list(object$uif$env))
-    message(" $ par.hist         : Parameter history (if available)")
-    message(" $ par.hist.stacked : Parameter history in stacked form for easy plotting (if available)")
-    message(" $ par.fixed        : Fixed Effect Parameter Table")
-    message(" $ eta              : Individual Parameter Estimates")
-    message(" $ seed             : Seed (if applicable)");
-    message(" $ model.name       : Model name (from R function)");
-    message(" $ data.name        : Name of R data input");
+    cat(" $ par.hist         : Parameter history (if available)\n")
+    cat(" $ par.hist.stacked : Parameter history in stacked form for easy plotting (if available)\n")
+    cat(" $ par.fixed        : Fixed Effect Parameter Table\n")
+    cat(" $ eta              : Individual Parameter Estimates\n")
+    cat(" $ seed             : Seed (if applicable)\n");
+    cat(" $ model.name       : Model name (from R function)\n");
+    cat(" $ data.name        : Name of R data input\n");
+    cat(" $ simInfo          : RxODE list for simulation\n");
 }
 
 ##' @export
@@ -2500,7 +2500,7 @@ focei.cleanup <- function(obj){
     if (is(obj, "focei.fit")){
         model <- obj$model
         for (m in c("ebe", "pred.only", "inner", "outer")){
-            if (is(model[[m]], "RxODE")) {RxODE::rxDelete(model[[m]])}
+            if (is(model[[m]], "RxODE")) {RxODE::rxUnload(model[[m]])}
         }
         if (file.exists(model$cache.file)){
             unlink(model$cache.file)

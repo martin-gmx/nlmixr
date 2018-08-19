@@ -1,5 +1,5 @@
 cat("Generate nlmixr installer")
-
+library(nlmixr)
 nsi.lauch.stub <- "
 CRCCheck On
 RequestExecutionLevel user
@@ -17,8 +17,8 @@ Caption \"Loading nlmixr\"
 Subcaption 3 \" \"
 ChangeUI all \"${NSISDIR}\\Contrib\\UIs\\LoadingBar_Icon.exe\"
 XPStyle on
-InstallDirRegKey HKCU \"Software\\nlmixr<%=archext%>\\<%=nlmixr.ver%>\" \"\"
 Section Main sec_main
+WriteRegStr HKCU \"Software\\nlmixr<%=archext%>\" \"\" \"$EXEDIR\"
 WriteRegStr HKCU \"Software\\R-core\\R\\<%=rver%>nlmixr<%=archext%>\" \"InstallPath\" \"$EXEDIR\\R\"
 Exec \"$EXEDIR\\R\\bin\\<%=Rdir%>\\Rgui.exe\"
 SectionEnd"
@@ -131,8 +131,8 @@ DeleteRegKey HKCU \"Software\\R-core\\Rtools\\<%=rtoolsver%>\"
 SectionEnd"
 
 buildInstaller <- function(name="nlmixr"){
-    rtools <- gsub("/", "\\", RxODE:::rxRtoolsBaseWin(), fixed=TRUE);
-    python <- gsub("/", "\\", RxODE:::rxPythonBaseWin(), fixed=TRUE);
+    rtools <- gsub("/", "\\", RxODE:::.rxRtoolsBaseWin(), fixed=TRUE);
+    python <- gsub("/", "\\", RxODE:::.rxPythonBaseWin(), fixed=TRUE);
     R <- gsub("/", "\\", Sys.getenv("R_HOME"), fixed=TRUE);
     lic <- gsub("/", "\\", devtools::package_file("LICENSE"), fixed=TRUE);
     header <- gsub("/", "\\", devtools::package_file("build/nlmixr-header.bmp"), fixed=TRUE)

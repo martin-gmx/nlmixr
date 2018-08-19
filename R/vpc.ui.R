@@ -9,7 +9,7 @@
 ##' @inheritParams vpc::vpc
 ##' @inheritParams RxODE::rxSolve
 ##' @param ... Args sent to \code{\link[RxODE]{rxSolve}}
-##' @inheritParams vpc::vpc
+##' @return Simulated dataset (invisibly)
 ##' @author Matthew L. Fidler
 ##' @export
 vpc_ui <- function(fit, data=NULL, n=100, bins = "jenks",
@@ -23,6 +23,14 @@ vpc_ui <- function(fit, data=NULL, n=100, bins = "jenks",
                    method=NULL){
     if (is.null(nStud)){
         nStud <- n;
+    }
+    if (is.numeric(data) || is.integer(data)){
+        nStud <- n
+        data <- NULL
+    }
+    tmp <- list(...)
+    if (!is.null(tmp$nsim)){
+        nStud <- tmp$nsim
     }
     con <- fit$fit$con;
     pt <- proc.time();
@@ -74,19 +82,27 @@ vpc_ui <- function(fit, data=NULL, n=100, bins = "jenks",
     ## Assume this is in the observed dataset. Add it to the current dataset
     if(!all(names(sim) %in% cols)){
         w <- cols[!(cols %in% names(sim))]
-        if (length(w) > 1){
+        if (length(w) >= 1){
             n <- names(sim)
-            sim <- cbind(sim, dat[, w]);
+            sim <- cbind(sim, dat[, w, drop = FALSE]);
             names(sim) <- c(n, w);
         }
     }
-    RxODE::rxDelete(mod);
+    RxODE::rxUnload(mod);
+    ns <- loadNamespace("vpc");
+    if (exists("vpc_vpc",ns)){
+        vpcn <- "vpc_vpc"
+    } else {
+        vpcn <- "vpc"
+    }
     call <- as.list(match.call(expand.dots=TRUE))[-1];
-    call <- call[names(call) %in% methods::formalArgs(getFromNamespace("vpc_vpc","vpc"))]
+    call <- call[names(call) %in% methods::formalArgs(getFromNamespace(vpcn,"vpc"))]
     call$obs_cols = list(id="id", dv="dv", idv="time")
     call$sim_cols = list(id="id", dv="dv", idv="time")
     call$stratify = stratify
-    do.call(getFromNamespace("vpc","vpc"), c(list(sim=sim, obs=dat), call), envir = parent.frame(1))
+    p = do.call(getFromNamespace(vpcn,"vpc"), c(list(sim=sim, obs=dat), call), envir = parent.frame(1))
+    print(p);
+    return(invisible(sim));
 }
 
 
@@ -109,7 +125,8 @@ vpc.nlmixr.ui.nlme <- function(sim, ...){
 }
 
 ##' @rdname vpc_ui
-##' @export
+##' @S3method vpc ui
+##' @export vpc.ui
 vpc.ui <- function(sim, ...){
     vpc_ui(fit=sim, ...);
 }

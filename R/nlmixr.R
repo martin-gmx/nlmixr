@@ -5,7 +5,7 @@
 }
 
 nlmixrSetupMemoize <- function(){
-    reSlow <- rex::rex(".slow",end)
+    reSlow <- rex::rex(".slow", end)
     f <- sys.function(-1)
     ns <- environment(f)
     .slow <- ls(pattern=reSlow,envir=ns);
@@ -52,6 +52,8 @@ nlmixrForget <- function(){
 ##' @importFrom lbfgs lbfgs
 ##' @importFrom methods is
 ##' @importFrom Rcpp evalCpp
+##' @importFrom dparser dparse
+##' @importFrom vpc vpc
 ##' @importFrom ggplot2 ggplot aes geom_point facet_wrap geom_line geom_abline xlab geom_smooth
 ##' @importFrom RcppArmadillo armadillo_version
 ##' @useDynLib nlmixr, .registration=TRUE
@@ -181,7 +183,7 @@ nlmixrData.character <- function(data){
 ##' @export
 ##' @rdname nlmixrData
 nlmixrData.default <- function(data){
-    dat <- data;
+    dat <- as.data.frame(data);
     nm1 <- toupper(names(dat));
     for (n in c("ID", "EVID", "TIME", "DV", "AMT")){
         w <- which(nm1 == n)
@@ -255,6 +257,14 @@ nlmixr_fit <- function(uif, data, est="nlme", control=list(), ...,
                        sum.prod=FALSE, calc.resid=TRUE){
     start.time <- Sys.time();
     dat <- nlmixrData(data);
+    up.covs <- toupper(uif$all.covs);
+    up.names <- toupper(names(dat))
+    for (i in seq_along(up.covs)){
+        w <- which(up.covs[i] == up.names)
+        if (length(w) == 1){
+            names(dat)[w] = uif$all.covs[i];
+        }
+    }
     backSort <- attr(dat, "backSort");
     backSort2 <- attr(dat, "backSort2");
     attr(dat, "backSort") <- NULL;
@@ -308,7 +318,7 @@ nlmixr_fit <- function(uif, data, est="nlme", control=list(), ...,
         uif$env$ODEopt <- ODEopt;
         uif$env$sum.prod <- sum.prod
         model <- uif$saem.model
-        cfg   = configsaem(model=model, data=dat, inits=uif$saem.init,
+        cfg <- configsaem(model=model, data=dat, inits=uif$saem.init,
                            mcmc=mcmc, ODEopt=ODEopt, seed=seed);
         if (print > 1){
             cfg$print <- as.integer(print)
@@ -375,7 +385,7 @@ nlmixr_fit <- function(uif, data, est="nlme", control=list(), ...,
             }
         }
         grp.fn <- uif$grp.fn;
-        dat$nlmixr.grp <- factor(apply(data, 1, function(x){
+        dat$nlmixr.grp <- factor(apply(dat, 1, function(x){
             cur <- x;
             names(cur) <- names(dat);
             with(as.list(cur), {
@@ -518,10 +528,10 @@ nlmixr_fit <- function(uif, data, est="nlme", control=list(), ...,
 ##' @param seed Random Seed for SAEM step.  (Needs to be set for
 ##'     reproducibility.)  By default this is 99.
 ##'
-##' @param n.burn Number of iterations in the Stochastic Approximation
+##' @param nBurn Number of iterations in the Stochastic Approximation
 ##'     (SA), or burn-in step. This is equivalent to Monolix's \code{K_0} or \code{K_b}.
 ##'
-##' @param n.em Number of iterations in the Expectation-Maximization
+##' @param nEm Number of iterations in the Expectation-Maximization
 ##'     (EM) Step. This is equivalent to Monolix's \code{K_1}.
 ##'
 ##' @param nmc Number of Markov Chains. By default this is 3.  When
@@ -553,19 +563,37 @@ nlmixr_fit <- function(uif, data, est="nlme", control=list(), ...,
 ##' @author Wenping Wang & Matthew L. Fidler
 ##' @export
 saemControl <- function(seed=99,
-                        n.burn=200, n.em=300,
+                        nBurn=200, nEm=300,
                         nmc=3,
-                        nu=c(2,2,2),
-                        atol = 1e-08,
-                        rtol = 1e-06,
+                        nu=c(2, 2, 2),
+                        atol = 1e-06,
+                        rtol = 1e-04,
                         stiff = TRUE,
-                        transit_abs = FALSE,
+                        transitAbs = FALSE,
                         print=1,
                         ...){
-    list(mcmc=list(niter=c(n.burn, n.em), nmc=nmc, nu=nu),
+    .xtra <- list(...);
+    .rm <- c();
+    if (missing(transitAbs) && !is.null(.xtra$transit_abs)){
+        transitAbs <- .xtra$transit_abs;
+        .rm <- c(.rm, "transit_abs")
+    }
+    if (missing(nBurn) && !is.null(.xtra$n.burn)){
+        nBurn <- .xtra$n.burn;
+        .rm <- c(.rm, "n.burn")
+    }
+    if (missing(nEm) && !is.null(.xtra$n.em)){
+        nEm <- .xtra$n.em;
+        .rm <- c(.rm, "n.em")
+    }
+    .ret <- list(mcmc=list(niter=c(nBurn, nEm), nmc=nmc, nu=nu),
          ODEopt=list(atol=atol, rtol=rtol,
                      stiff=as.integer(stiff),
-                     transit_abs = as.integer(transit_abs)),
+                     transitAbs = as.integer(transitAbs)),
          seed=seed,
          print=print, ...)
+    if (length(.rm) > 0){
+        .ret <- .ret[!(names(.ret) %in% .rm)]
+    }
+    .ret
 }

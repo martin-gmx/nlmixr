@@ -4,18 +4,18 @@
 \alias{saemControl}
 \title{Control Options for SAEM}
 \usage{
-saemControl(seed = 99, n.burn = 200, n.em = 300, nmc = 3, nu = c(2, 2,
-  2), atol = 1e-08, rtol = 1e-06, stiff = TRUE, transit_abs = FALSE,
+saemControl(seed = 99, nBurn = 200, nEm = 300, nmc = 3, nu = c(2, 2,
+  2), atol = 1e-06, rtol = 1e-04, stiff = TRUE, transitAbs = FALSE,
   print = 1, ...)
 }
 \arguments{
 \item{seed}{Random Seed for SAEM step.  (Needs to be set for
 reproducibility.)  By default this is 99.}
 
-\item{n.burn}{Number of iterations in the Stochastic Approximation
+\item{nBurn}{Number of iterations in the Stochastic Approximation
 (SA), or burn-in step. This is equivalent to Monolix's \code{K_0} or \code{K_b}.}
 
-\item{n.em}{Number of iterations in the Expectation-Maximization
+\item{nEm}{Number of iterations in the Expectation-Maximization
 (EM) Step. This is equivalent to Monolix's \code{K_1}.}
 
 \item{nmc}{Number of Markov Chains. By default this is 3.  When
@@ -38,12 +38,12 @@ computation.  In Monolix this is equivalent to \code{L}}
     The third value represents the number of bootstrap/reshuffling or
     uni-dimensional random samples are taken.}
 
-\item{atol}{a numeric absolute tolerance (1e-08 by default) used
+\item{atol}{a numeric absolute tolerance (1e-8 by default) used
 by the ODE solver to determine if a good solution has been
 achieved;  This is also used in the solved linear model to check
 if prior doses do not add anything to the solution.}
 
-\item{rtol}{a numeric relative tolerance (1e-06 by default) used
+\item{rtol}{a numeric relative tolerance (1e-6 by default) used
 by the ODE solver to determine if a good solution has been
 achieved. This is also used in the solved linear model to check
  if prior doses do not add anything to the solution.}
@@ -62,7 +62,7 @@ achieved. This is also used in the solved linear model to check
     Dormand and Prince as implemented in C by Hairer and Wanner
     (1993).}
 
-\item{transit_abs}{boolean indicating if this is a transit
+\item{transitAbs}{boolean indicating if this is a transit
 compartment absorption}
 
 \item{print}{The number it iterations that are completed before
